@@ -47,31 +47,6 @@ const requestPermissions = async (
     }
   }
 
-  if (captureAudio) {
-    if (Platform.OS === 'ios') {
-      hasRecordAudioPermissions = await CameraManager.checkRecordAudioAuthorizationStatus();
-    } else if (Platform.OS === 'android') {
-      if (await CameraManager.checkIfRecordAudioPermissionsAreDefined()) {
-        const audioPermissionResult = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          androidRecordAudioPermissionOptions,
-        );
-        if (typeof audioPermissionResult === 'boolean') {
-          hasRecordAudioPermissions = audioPermissionResult;
-        } else {
-          hasRecordAudioPermissions = audioPermissionResult === PermissionsAndroid.RESULTS.GRANTED;
-        }
-      } else if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `The 'captureAudio' property set on RNCamera instance but 'RECORD_AUDIO' permissions not defined in the applications 'AndroidManifest.xml'. ` +
-            `If you want to record audio you will have to add '<uses-permission android:name="android.permission.RECORD_AUDIO"/>' to your 'AndroidManifest.xml'. ` +
-            `Otherwise you should set the 'captureAudio' property on the component instance to 'false'.`,
-        );
-      }
-    }
-  }
-
   return {
     hasCameraPermissions,
     hasRecordAudioPermissions,
