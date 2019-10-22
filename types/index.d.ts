@@ -134,11 +134,14 @@ export interface RNCameraProps {
 
   autoFocus?: keyof AutoFocus;
   autoFocusPointOfInterest?: Point;
+  /* iOS only */
+  onSubjectAreaChanged?: (event: { nativeEvent: { prevPoint: { x: number; y: number; } } }) => void;
   type?: keyof CameraType;
   flashMode?: keyof FlashMode;
   notAuthorizedView?: JSX.Element;
   pendingAuthorizationView?: JSX.Element;
   useCamera2Api?: boolean;
+  exposure?: number;
   whiteBalance?: keyof WhiteBalance;
   captureAudio?: boolean;
 
@@ -151,6 +154,11 @@ export interface RNCameraProps {
 
   /** Value: float from 0 to 1.0 */
   zoom?: number;
+  /** iOS only. float from 0 to any. Locks the max zoom value to the provided value
+    A value <= 1 will use the camera's max zoom, while a value > 1
+    will use that value as the max available zoom
+  **/
+  maxZoom?: number;
   /** Value: float from 0 to 1.0 */
   focusDepth?: number;
 
@@ -198,7 +206,7 @@ export interface RNCameraProps {
     buttonPositive?: string;
     buttonNegative?: string;
     buttonNeutral?: string;
-  };
+  } | null;
 
   androidRecordAudioPermissionOptions?: {
     title: string;
@@ -206,7 +214,7 @@ export interface RNCameraProps {
     buttonPositive?: string;
     buttonNegative?: string;
     buttonNeutral?: string;
-  };
+  } | null;
 
   // -- IOS ONLY PROPS
   defaultVideoQuality?: keyof VideoQuality;
@@ -353,7 +361,7 @@ interface TakePictureOptions {
   /** Android only */
   skipProcessing?: boolean;
   fixOrientation?: boolean;
-  writeExif?: boolean;
+  writeExif?: boolean | { [name: string]: any };
 
   /** iOS only */
   forceUpOrientation?: boolean;
@@ -377,8 +385,6 @@ interface RecordOptions {
   mute?: boolean;
   mirrorVideo?: boolean;
   path?: string;
-
-  /** Android only */
   videoBitrate?: number;
 
   /** iOS only */

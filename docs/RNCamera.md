@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
 });
 
-AppRegistry.registerComponent('ExampleApp', () => ExampleApp);
+AppRegistry.registerComponent('App', () => ExampleApp);
 ```
 
 ## FaCC (Function as Child Components)
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   },
 });
 
-AppRegistry.registerComponent('ExampleApp', () => ExampleApp);
+AppRegistry.registerComponent('App', () => ExampleApp);
 ```
 
 ### `camera`
@@ -206,13 +206,22 @@ Use the `autoFocus` property to specify the auto focus setting of your camera. `
 ### `autoFocusPointOfInterest`
 
 Values: Object `{ x: 0.5, y: 0.5 }`.
+Values (iOS): Object `{ x: 0.5, y: 0.5, autoExposure }`.
 
 Setting this property causes the auto focus feature of the camera to attempt to focus on the part of the image at this coordiate.
 
 Coordinates values are measured as floats from `0` to `1.0`. `{ x: 0, y: 0 }` will focus on the top left of the image, `{ x: 1, y: 1 }` will be the bottom right. Values are based on landscape mode with the home button on the right—this applies even if the device is in portrait mode.
 
+On iOS, focusing will not change the exposure automatically unless autoExposure is also set to true.
+
 Hint:
 for portrait orientation, apply 90° clockwise rotation + translation: [Example](https://gist.github.com/Craigtut/6632a9ac7cfff55e74fb561862bc4edb)
+
+
+### iOS `onSubjectAreaChanged`
+iOS only.
+
+if autoFocusPointOfInterest is set, this event will be fired when a substancial change is detected with the following object: `{ nativeEvent: { prevPoint: { x: number; y: number; } } }`
 
 ### `captureAudio`
 
@@ -253,6 +262,14 @@ Values: `RNCamera.Constants.Type.front` or `RNCamera.Constants.Type.back` (defau
 
 Use the `type` property to specify which camera to use.
 
+### `Android` `cameraId`
+
+Overrides the `type` property and uses the camera given by cameraId. Use `getCameraIds` to get the list of available IDs.
+
+A common use case for this is to provide a "switch camera" button that loops through all available cameras.
+
+Note: Variables such as flash might need to be resetted due to the camera not reporting an error when those values are not supported.
+
 ### `whiteBalance`
 
 Values: `RNCamera.Constants.WhiteBalance.sunny`, `RNCamera.Constants.WhiteBalance.cloudy`, `RNCamera.Constants.WhiteBalance.shadow`, `RNCamera.Constants.WhiteBalance.incandescent`, `RNCamera.Constants.WhiteBalance.fluorescent` or `RNCamera.Constants.WhiteBalance.auto` (default)
@@ -268,6 +285,14 @@ Use the `whiteBalance` property to specify which white balance setting the camer
 Value: float from `0` to `1.0`
 
 Specifies the zoom of your camera. The value 0 is no zoom, 1 is maximum zoom. For a medium zoom, for example, you could pass `0.5`.
+
+### `iOS` `maxZoom`
+
+iOS Only.
+
+Value: optional float greater than `1.0` used to enforce a maximum zoom value on the camera. Setting a value to less than `1` (default) will make the camera use its own max zoom property.
+
+Specifies the max zoom value used in zoom calculations. This is specifically useful for iOS where it reports arbitrary high values and using a 0 to 1 value as the zoom factor is not appropriate.
 
 ### `Android` `permissionDialogTitle` - Deprecated
 
@@ -293,6 +318,10 @@ By default a `Camera not authorized` message will be displayed when access to th
 
 By default a <ActivityIndicator> will be displayed while the component is waiting for the user to grant/deny access to the camera, if set displays the passed react element instead of the default one.
 
+#### `iOS` `rectOfInterest`
+
+An `{x: , y:, width:, height: }` object which defines the rect of interst as normalized coordinates from `(0,0)` top left corner to `(1,1)` bottom right corner.
+
 ### `iOS` `videoStabilizationMode`
 
 The video stabilization mode used for a video recording. The possible values are:
@@ -304,7 +333,7 @@ The video stabilization mode used for a video recording. The possible values are
 
 You can read more about each stabilization type here: https://developer.apple.com/documentation/avfoundation/avcapturevideostabilizationmode
 
-### `iOS` `defaultVideoQuality`
+### `defaultVideoQuality`
 
 This option specifies the quality of the video to be taken. The possible values are:
 
@@ -551,7 +580,7 @@ Supported options:
 
 - `videoBitrate`. (int greater than 0) This option specifies a desired video bitrate. For example, 5\*1000\*1000 would be 5Mbps.
 
-  - `ios` Not supported.
+  - `ios` Supported however requires that the codec key is also set.
   - `android` Supported.
 
 - `orientation` (string or number). Specifies the orientation that us used for recording the video. Possible values: `"portrait"`, `"portraitUpsideDown"`, `"landscapeLeft"` or `"landscapeRight"`.
@@ -592,7 +621,7 @@ The promise will be fulfilled with an object with some of the following properti
 
 ### `refreshAuthorizationStatus: Promise<void>`
 
-Allows to make RNCamera check Permissions again and set status accordingly.  
+Allows to make RNCamera check Permissions again and set status accordingly.
 Making it possible to refresh status of RNCamera after user initially rejected the permissions.
 
 ### `stopRecording: void`
@@ -610,6 +639,20 @@ Resumes the preview after pausePreview() has been called.
 ### `Android` `getSupportedRatiosAsync(): Promise`
 
 Android only. Returns a promise. The promise will be fulfilled with an object with an array containing strings with all camera aspect ratios supported by the device.
+
+### `getCameraIdsAsync(): Promise`
+
+Returns a promise. The promise will be fulfilled with an array containing objects with all camera IDs and type supported by the device.
+
+The promise will be fulfilled with an array containing objects with some of the following properties:
+
+- `id`: (string) the ID of the camera.
+
+- `type`: One of `RNCamera.Constants.Type.front` | `RNCamera.Constants.Type.back`
+
+- `deviceType`: iOS 10+ only. Returns the internal device string type used by the OS. Useful to identify camera types (e.g., wide). Constants match iOS' string values: `AVCaptureDeviceTypeBuiltInWideAngleCamera`, `AVCaptureDeviceTypeBuiltInTelephotoCamera`, `AVCaptureDeviceTypeBuiltInUltraWideCamera`. More info can be found at <a href="https://developer.apple.com/documentation/avfoundation/avcapturedevicetypebuiltinultrawidecamera" target="_blank">Apple Docs</a>
+
+Note: iOS also allows for virtual cameras (e.g., a camera made of multiple cameras). However, only physical non-virtual cameras are returned by this method since advanced features (such as depth maps or auto switching on camera zoom) are not supported.
 
 ### `iOS` `isRecording(): Promise<boolean>`
 
