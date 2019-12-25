@@ -230,6 +230,12 @@ Values: boolean `true` (default) | `false`
 Specifies if audio recording permissions should be requested.
 Make sure to follow README instructions for audio recording permissions [here](README.md).
 
+### iOS `keepAudioSession`
+
+Values: boolean `true` | `false` (false)
+
+(iOS Only) When the camera is unmounted, it will release any audio session it acquired (if `captureAudio=true`) so other media can continue playing. However, this might not be always desirable (e.g., if video is played afterwards) and can be disabled by setting it to `true`. Setting this to `true`, means your app will not release the audio session. Note: other apps might still "steal" the audio session from your app.
+
 ### `flashMode`
 
 Values: `RNCamera.Constants.FlashMode.off` (default), `RNCamera.Constants.FlashMode.on`, `RNCamera.Constants.FlashMode.auto` or `RNCamera.Constants.FlashMode.torch`.
@@ -363,7 +369,7 @@ Note: This solve the flicker video recording issue for iOS
 
 ### `onCameraReady`
 
-Function to be called when native code emit onCameraReady event, when camera is ready.
+Function to be called when native code emit onCameraReady event, when camera is ready. This event will also fire when changing cameras (by `type` or `cameraId`).
 
 ### `onMountError`
 
@@ -378,9 +384,18 @@ Event contains the following fields:
 - `cameraStatus` - one of the [CameraStatus](#status) values
 - `recordAudioPermissionStatus` - one of the [RecordAudioPermissionStatus](#recordAudioPermissionStatus) values
 
-### `Android` `onPictureTaken`
+### `iOS` `onAudioInterrupted`
 
-Function to be called when native code emit onPictureTaken event, when camera has taken a picture.
+iOS only. Function to be called when the camera audio session is interrupted or fails to start for any reason (e.g., in use or not authorized). For example, this might happen due to another app taking exclusive control over the microphone (e.g., a phone call) if `captureAudio={true}`. When this happens, any active audio input will be temporarily disabled and cause a flicker on the preview screen. This will fire any time an attempt to connect the audio device fails. Use this to update your UI to indicate that audio recording is not currently possible.
+
+### `iOS` `onAudioConnected`
+
+iOS only. Function to be called when the camera audio session is connected. This will be fired the first time the camera is mounted with `captureAudio={true}`, and any time the audio device connection is established. Note that this event might not always fire after an interruption due to iOS' behavior. For example, if the audio was already interrupted before the camera was mounted, this event will only fire once a recording is attempted.
+
+
+### `onPictureTaken`
+
+Function to be called when native code emit onPictureTaken event, when camera has taken a picture, but before all extra processing happens. This can be useful to allow the UI to take other pictures while the processing of the current picture is still taking place.
 
 ### Bar Code Related props
 
@@ -408,18 +423,24 @@ Event contains the following fields
           }
         }
 
-  - onAndroid:
+  - onAndroid: the `ResultPoint[]` (`bounds.origin`) is returned for scanned barcode origins. The number of `ResultPoint` returned depends on the type of Barcode.
 
-        bounds:[{x:string,y:string}]
-        	- on Android it just returns resultPoints:
-        - for barcodes:
+        bounds: {
+          width: number;
+          height: number;
+          origin: Array<{x: number, y: number}>
+        }
 
-              bounds[0].x : left side of barcode.
-              bounds[1].x : right side of barcode
-        - counting for QRcodes:
+        1. **PDF417**: 8 ResultPoint, laid out as follow:
+          0 --- 4 ------ 6 --- 2
+          | ////////////////// |
+          1 --- 5 ------ 7 --- 3
 
-              1 2
-              0
+        2. **QR**: 4 ResultPoint, laid out as follow:
+          2 ------ 3
+          | //////
+          | //////
+          1 ------ 0
 
 The following barcode types can be recognised:
 
@@ -515,7 +536,7 @@ Method to be called when text is detected. Receives a Text Recognized Event obje
 
 ### `takePictureAsync([options]): Promise`
 
-Takes a picture, saves in your app's cache directory and returns a promise.
+Takes a picture, saves in your app's cache directory and returns a promise. Note: additional image processing, such as mirror, orientation, and width, can be significantly slow on Android.
 
 Supported options:
 
@@ -527,13 +548,20 @@ Supported options:
 
 - `mirrorImage` (boolean true or false). Use this with `true` if you want the resulting rendered picture to be mirrored (inverted in the vertical axis). If no value is specified `mirrorImage:false` is used.
 
+- `writeExif`: (boolean or object, defaults to true). Setting this to a boolean indicates if the image exif should be preserved after capture, or removed. Setting it to an object, merges any data with the final exif output. This is useful, for example, to add GPS metadata (note that GPS info is correctly transalted from double values to the EXIF format, so there's no need to read the EXIF protocol).
+```js
+writeExif = {
+  "GPSLatitude": latitude,
+  "GPSLongitude": longitude,
+  "GPSAltitude": altitude
+}
+```
+
 - `exif` (boolean true or false) Use this with `true` if you want a exif data map of the picture taken on the return data of your promise. If no value is specified `exif:false` is used.
 
 - `fixOrientation` (android only, boolean true or false) Use this with `true` if you want to fix incorrect image orientation (can take up to 5 seconds on some devices). Do not provide this if you only need EXIF based orientation.
 
 - `forceUpOrientation` (iOS only, boolean true or false). This property allows to force portrait orientation based on actual data instead of exif data.
-
-- `skipProcessing` (android only, boolean). This property skips all image processing on android, this makes taking photos super fast, but you loose some of the information, width, height and the ability to do some processing on the image (base64, width, quality, mirrorImage, exif, etc)
 
 - `doNotSave` (boolean true or false). Use this with `true` if you do not want the picture to be saved as a file to cache. If no value is specified `doNotSave:false` is used. If you only need the base64 for the image, you can use this with `base64:true` and avoid having to save the file.
 
@@ -669,6 +697,14 @@ This component supports subviews, so if you wish to use the camera view as a bac
 A Barcode and QR code UI mask which can be use to render a scanning layout on camera with customizable styling.
 
 Read more about [react-native-barcode-mask](https://github.com/shahnawaz/react-native-barcode-mask) here.
+
+### @nartc/react-native-barcode-mask
+
+A rewritten version of `react-native-barcode-mask` using `Hooks` and `Reanimated`. If you're already using `react-native-reanimated` (`react-navigation` dependency) then you might benefit from this rewritten component.
+- Customizable
+- Provide custom hook to "scan barcode within finder area"
+
+Read more about it here [@nartc/react-native-barcode-mask](https://github.com/nartc/react-native-barcode-mask)
 
 ## Testing
 
